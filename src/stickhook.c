@@ -55,7 +55,7 @@ __attribute__((noinline, naked)) static void stick_dispatcher() {
                  : "x17");
 }
 
-void stickhook_init() {
+void stick_init(void) {
     void *self_slide = NULL;
 
     /* parse macho header */
@@ -95,8 +95,7 @@ void stickhook_init() {
     for (int i = 0; i < nstick; i++) {
         struct stick_entry *entry = stick_info + i;
         if (i == 0 || strcmp(entry->image_name, (entry - 1)->image_name) != 0) {
-            // NOTE: stickprep would sort the infos by image name
-            // (so hooks for the same image are in a row)
+            // hooks for the same image should be in a row
             uint32_t img_idx = name2index(entry->image_name);
             if (img_idx == -1) continue;
             img_slide = _dyld_get_image_vmaddr_slide(img_idx);

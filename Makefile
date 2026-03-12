@@ -1,7 +1,12 @@
 ARCH   ?= $(shell uname -m)
 TARGET ?= macosx
 
+
+
 CFLAGS  := -arch $(ARCH) -Os -Wall -Wshadow
+
+CFLAGS += $(if $(DEBUG),-g -fsanitize=address)
+CFLAGS += $(if $(COMPACT),-DCOMPACT)
 PREPFLAGS := $(CFLAGS)
 
 ifdef MIN_OSVER
@@ -16,9 +21,6 @@ endif
 ifeq ($(TARGET), iphoneos)
 	CFLAGS += -isysroot $(shell xcrun --sdk $(TARGET) --show-sdk-path)
 endif
-
-CFLAGS += $(if $(DEBUG),-g -fsanitize=address)
-CFLAGS += $(if $(COMPACT),-DCOMPACT)
 
 all: libstickhook.a stickprep
 

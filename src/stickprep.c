@@ -7,18 +7,18 @@
 
 #include "../include/stickhook.h"
 
-#define ADDR_MASK    0x0000FFFFFFFFFFFFULL
+#define ADDR_MASK 0x0000FFFFFFFFFFFFULL
 
-#define AARCH64_B    0x14000000 // b        +0
-#define AARCH64_BL   0x94000000 // bl       +0
+#define AARCH64_B 0x14000000    // b        +0
+#define AARCH64_BL 0x94000000   // bl       +0
 #define AARCH64_ADRP 0x90000011 // adrp     x17, 0
-#define AARCH64_LDR  0xf9400231 // ldr      x17, [x17]
+#define AARCH64_LDR 0xf9400231  // ldr      x17, [x17]
 #define AARCH64_LDUR 0xf85f8231 // ldur     x17, [x17, -8]
-#define AARCH64_BR   0xd61f0220 // br       x17
-#define AARCH64_BLR  0xd63f0220 // blr      x17
-#define AARCH64_ADD  0x91000231 // add      x17, x17, 0
-#define AARCH64_SUB  0xd1000231 // sub      x17, x17, 0
-#define AARCH64_MOV  0xd2800010 // mov      x16, 0
+#define AARCH64_BR 0xd61f0220   // br       x17
+#define AARCH64_BLR 0xd63f0220  // blr      x17
+#define AARCH64_ADD 0x91000231  // add      x17, x17, 0
+#define AARCH64_SUB 0xd1000231  // sub      x17, x17, 0
+#define AARCH64_MOV 0xd2800010  // mov      x16, 0
 
 static struct {
     int64_t vm_slide;
@@ -56,6 +56,8 @@ uint32_t a64_b(uint64_t src, uint64_t dst);
 uint32_t a64_adrp(uint64_t src, uint64_t dst);
 
 int main(int argc, char **argv) {
+    int err = 0;
+
     if (argc != 3) {
         printf("usage: stickprep <dylib> <binary>");
         return 1;
@@ -72,18 +74,16 @@ int main(int argc, char **argv) {
     binary = fopen(argv[2], "rb+");
     if (binary == NULL) {
         perror("fopen");
-        (void)fclose(dylib);
-        return 1;
+        err = 1;
+        goto exit;
     }
     bin_name = strrchr(argv[2], '/') + 1;
     if (bin_name == NULL + 1) bin_name = argv[2];
 
     /* parse macho files */
     if (parse_lib(dylib, bin_name) || parse_bin(binary)) {
-        free(lib.stick_info);
-        (void)fclose(dylib);
-        (void)fclose(binary);
-        return 1;
+        err = 1;
+        goto exit;
     }
 
     /* time for patchhhhing! */
@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
         const struct stick_entry *entry = lib.stick_info + i;
         /* store origin function stub */
         if (entry->original != 0) {
-            uint32_t origin_code[STICK_RESSIZE / 4];
+            uint32_t origin_code[STICK_ORIGSIZE / 4];
             /* store header first */
             void *func_header = read_file_off(binary, STICK_HEADSIZE, (long)(bin.vm_slide + entry->vmaddr));
             memcpy(origin_code, func_header, STICK_HEADSIZE);
@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
             origin_code[STICK_HEADSIZE / 4 + 2] = AARCH64_LDR; /* load original function address from .vmaddr */
             origin_code[STICK_HEADSIZE / 4 + 3] = AARCH64_BR;
             /* write to dylib */
-            write_file_off(dylib, origin_code, STICK_RESSIZE, origin_addr + lib.vm_slide);
+            write_file_off(dylib, origin_code, STICK_ORIGSIZE, origin_addr + lib.vm_slide);
         }
         /* write jumps to the dispatcher stub */
         uint32_t jump_insn[2];
@@ -126,11 +126,12 @@ int main(int argc, char **argv) {
 
     /* write back updated stick info! */
     write_file_off(dylib, lib.stick_info, sizeof(struct stick_entry) * lib.nstick, lib.stick_offset);
-    free(lib.stick_info);
 
+exit:
     (void)fclose(dylib);
     (void)fclose(binary);
-    return 0;
+    free(lib.stick_info);
+    return err;
 }
 
 void *read_file(FILE *fp, const size_t len) {
@@ -167,22 +168,15 @@ int write_file_off(FILE *fp, const void *data, const size_t len, const long int 
     return write_file(fp, data, len);
 }
 
-static const char *str_base;
-const char *entry_name(const struct stick_entry *entry) {
-    return str_base + (ADDR_MASK & (int64_t)entry->image_name);
-}
-
-int entry_cmpar(const void *ent1, const void *ent2) {
-    return strcmp(entry_name(ent1), entry_name(ent2));
-}
-
 int parse_lib(FILE *dylib, const char *bin_name) {
+    int err = 0;
+
     (void)fseek(dylib, 0, SEEK_END);
     const struct mach_header_64 *header = read_file_off(dylib, ftell(dylib), 0);
     if (header->magic != MH_MAGIC_64) {
         (void)fprintf(stderr, "stickprep: dylib is not a valid 64-bit Mach-O file!\n");
-        free((void *)header);
-        return 1;
+        err = 1;
+        goto exit;
     }
 
     /* parse load commands */
@@ -210,8 +204,8 @@ int parse_lib(FILE *dylib, const char *bin_name) {
 
     if (info_sect == NULL) {
         (void)fprintf(stderr, "stickprep: __stick_info not found!\n");
-        free((void *)header);
-        return 1;
+        err = 1;
+        goto exit;
     }
 
     /* update stick info */
@@ -221,33 +215,51 @@ int parse_lib(FILE *dylib, const char *bin_name) {
     lib.stick_info = malloc(info_sect->size);
     memcpy(lib.stick_info, (void *)header + lib.stick_offset, info_sect->size);
 
-    /* sort stick info */
-    str_base = (const char *)header + lib.vm_slide;
-    qsort(lib.stick_info, lib.nstick, sizeof(struct stick_entry), entry_cmpar);
+#define ENTRY_NAME(i) (str_base + (ADDR_MASK & (int64_t)(lib.stick_info + (i))->image_name))
+    const char *str_base = (const char *)header + lib.vm_slide;
+    /* check image names in stick info */
+    int nuniq = 0;
+    const char **unique_names = (const char **)malloc(lib.nstick * sizeof(char *));
+    for (int i = 0; i < lib.nstick - 1; i++) {
+        const char *curn = ENTRY_NAME(i);
+        const char *nextn = ENTRY_NAME(i + 1);
+        if (strcmp(curn, nextn) != 0) {
+            for (int j = 0; j < nuniq; j++) {
+                if (strcmp(unique_names[j], nextn) == 0) {
+                    (void)fprintf(stderr, "stickprep: hooks for image '%s' are not in a row\n", bin_name);
+                    free((void *)unique_names);
+                    err = 1;
+                    goto exit;
+                }
+            }
+            unique_names[nuniq++] = curn;
+        }
+    }
+    free((void *)unique_names);
 
     /* update current image info */
     lib.img_stick = -1;
     lib.nimg_stick = 0;
     for (int i = 0; i < lib.nstick; i++) {
-        const struct stick_entry *entry = lib.stick_info + i;
-        if (strcmp(bin_name, entry_name(entry)) == 0) {
+        if (strcmp(bin_name, ENTRY_NAME(i)) == 0) {
             lib.img_stick = i;
             break;
         }
     }
     if (lib.img_stick == -1) {
         (void)fprintf(stderr, "stickprep: no hook found for image: %s\n", bin_name);
-        free((void *)header);
-        return 1;
+        err = 1;
+        goto exit;
     }
     for (int i = lib.img_stick; i < lib.nstick; i++) {
-        const struct stick_entry *entry = lib.stick_info + i;
-        if (strcmp(bin_name, entry_name(entry)) != 0) break;
+        if (strcmp(bin_name, ENTRY_NAME(i)) != 0) break;
         lib.nimg_stick++;
     }
+#undef ENTRY_NAME
 
+exit:
     free((void *)header);
-    return 0;
+    return err;
 }
 
 int parse_bin(FILE *binary) {

@@ -1,9 +1,14 @@
 CompileFlags:
-  Add: [-xc, -O3, -Wall, -Wshadow]
+  Add: [-O3, -Wall, -Wshadow]
   Compiler: clang
 
 Diagnostics:
   ClangTidy:
     Add: [bugprone-*, cert-*, modernize-*, performance-*]
-    Remove: [bugprone-easily-swappable-parameters]
+    Remove:
+      [
+        bugprone-easily-swappable-parameters,
+        modernize-use-trailing-return-type,
+        modernize-use-nullptr,
+      ]
     FastCheckFilter: None

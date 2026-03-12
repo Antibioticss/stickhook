@@ -4,7 +4,7 @@ This test is designed to run on macOS
 
 Note that you might have to update the offset in `test.c`
 
-```sh
+```bash
 clang test.c -shared -o libtest.dylib -lstickhook -L..
 clang main.c -o main -ltest -L.
 ../stickprep libtest.dylib main
