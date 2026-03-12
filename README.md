@@ -8,7 +8,7 @@ You don't have to run the dylib once to make it work!
 
 ## Usage
 
-Call `stickhook_init()` once before calling `stick_hook` or `stick_replace`
+Call `stick_init()` once before calling `stick_hook` or `stick_replace`
 
 After compiling, use `stickprep` to install static hooks to the target binary and update info in the dylib
 
