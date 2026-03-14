@@ -21,6 +21,7 @@ void my_ask_serial() {
 __attribute__((constructor(0))) void load() {
     stick_init();
     stick_hook("main", 0x100000528, my_is_valid, &orig_is_valid1);
+    // stick_hook("abcd", 0x100000528, my_is_valid, &orig_is_valid1);
     stick_hook("main", 0x100000608, my_ask_serial, &orig_ask_serial);
     return;
 }

@@ -1,4 +1,4 @@
-#include "../include/stickhook.h"
+#include "stickhook.h"
 
 #include <mach-o/dyld.h>
 #include <mach-o/ldsyms.h>
@@ -20,13 +20,13 @@
 static int nstick;
 static struct stick_entry *stick_info;
 
-static uint32_t name2index(const char *image_name) {
+static int32_t name2index(const char *image_name) {
     size_t len = strlen(image_name);
     uint32_t total = _dyld_image_count();
-    for (uint32_t i = 0; i < total; i++) {
+    for (int32_t i = 0; i < total; i++) {
         const char *full_name = _dyld_get_image_name(i);
         size_t full_len = strlen(full_name);
-        if (strcmp(image_name, full_name + full_len - len) == 0) {
+        if (len <= full_len && strcmp(image_name, full_name + full_len - len) == 0) {
             return i;
         }
     }
@@ -55,7 +55,7 @@ __attribute__((noinline, naked)) static void stick_dispatcher() {
                  : "x17");
 }
 
-void stick_init(void) {
+int stick_init(void) {
     void *self_slide = NULL;
 
     /* parse macho header */
@@ -84,7 +84,7 @@ void stick_init(void) {
     }
     if (info_sect == NULL) {
         LOG_ERROR("stickhook_init: __stick_info section not found!");
-        return;
+        return 1;
     }
 
     /* update global stick info */
@@ -104,4 +104,5 @@ void stick_init(void) {
         }
         entry->vmaddr += img_slide + STICK_HEADSIZE;
     }
+    return 0;
 }

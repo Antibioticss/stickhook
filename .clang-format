@@ -5,7 +5,7 @@ IndentWidth: 4
 
 # Force pointers to the type for C++.
 ColumnLimit: 150
-# AlignConsecutiveMacros: AcrossEmptyLines
+AlignConsecutiveMacros: AcrossEmptyLines
 AllowShortFunctionsOnASingleLine: false
 AllowShortIfStatementsOnASingleLine: true
 BreakBeforeBraces: Custom

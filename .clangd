@@ -1,5 +1,5 @@
 CompileFlags:
-  Add: [-O3, -Wall, -Wshadow]
+  Add: [-O3, -Wall, -Wshadow, -I../include]
   Compiler: clang
 
 Diagnostics:
