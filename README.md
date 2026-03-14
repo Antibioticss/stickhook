@@ -1,46 +1,60 @@
 # stickhook
 
-_This repo is still under development_
+[English](README.md) | [中文](README.zh-CN.md)
 
-A simple static inline hook framework for jailed iOS devices (and macOS)
+_This project is still under development_
 
-You don't have to run the dylib once to make it work!
+A simple and easy-to-use **static** inline hook framework for **jailed** iOS devices and macOS
 
 ## Usage
 
-Call `stick_init()` once before using `stick_hook` or `stick_replace`
+1. Call `stick_init()` once in your hook library
+2. Use `stick_hook` or `stick_replace` to declare a hook
+3. After compiling, use `stickprep` to install static patches into the target binary
 
-After compiling, use `stickprep` to install static hooks to the target binary and update info in the dylib
+## Documentation
 
-```bash
-stickprep <library> <target>
-```
-
-## API
+### stickhook library
 
 ```c
 int stick_init(void);
 ```
 
-Return `0` on success
+Returns `0` on success.
 
 ```c
 void stick_hook(char *image_name, uint64_t vmaddr, void *replacement, void **originptr);
 ```
 
-- `image_name` image file name
-- `vmaddr` vmaddr of the function in the image
-- `replacement` new implementation function pointer
-- `originptr` pointer to a pointer which will store original function
+> `stick_hook` is implemented as a C macro, this declaration is for reference only
 
-Note that this function is implemented using C macros, use it carefully
+Declare a function hook, and save original function
+
+- `image_name` — file name of the target binary
+- `vmaddr` — virtual memory address of the function to hook within the image
+- `replacement` — the replacement function
+- `originptr` — pointer to store the original function
 
 ```c
 void stick_replace(char *image_name, uint64_t vmaddr, void *replacement);
 ```
 
-Similar to above, but without `originptr` argument
+Same as above, but does not save original function
+
+### stickprep tool
+
+```bash
+stickprep <library> <target>
+```
+
+> the filename of `target` must match `image_name` specified in the `library`
+
+Patch static hooks into `target` and update runtime metadata in `library`.
+
+If `library` has hooks for multiple binaries, `stickprep` must be run once for each target binary.
+
+**Note:** `stickprep` modifies **both** `library` and `target`. **Do not** run it more than once on the same binary.
 
 ## Example
 
-Check out the `test` directory
+See the `test` directory for a working example.
