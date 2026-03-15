@@ -9,7 +9,7 @@ A simple and easy-to-use **static** inline hook framework for **jailed** iOS dev
 ## Usage
 
 1. Call `stick_init()` once in your hook library
-2. Use `stick_hook` or `stick_replace` to declare a hook
+2. Use `stick_hook` or `stick_replace` to declare hooks
 3. After compiling, use `stickprep` to install static patches into the target binary
 
 ## Documentation
