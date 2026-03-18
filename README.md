@@ -35,6 +35,8 @@ Declare a function hook, and save original function
 - `replacement` — the replacement function
 - `originptr` — pointer to store the original function
 
+**Note:** hooks for the same image must be **declared consecutively**
+
 ```c
 void stick_replace(char *image_name, uint64_t vmaddr, void *replacement);
 ```

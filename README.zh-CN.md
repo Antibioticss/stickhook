@@ -35,6 +35,8 @@ void stick_hook(char *image_name, uint64_t vmaddr, void *replacement, void **ori
 - `replacement` — 用于hook的替换函数实现
 - `originptr` — 保存原函数指针的指针
 
+**注意：**同一个`image`的hook必须被**连续声明**
+
 ```c
 void stick_replace(char *image_name, uint64_t vmaddr, void *replacement);
 ```
