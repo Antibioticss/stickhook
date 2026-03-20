@@ -275,14 +275,14 @@ int install_hook(const char *target_path, struct stick_lib *lib, int imgidx) {
     else
         entry_end = lib->nstick;
 
-    uint32_t *bincode, *libcode;
+    uint32_t *bin_insn, *lib_insn;
     // first entry stored the address of dispatcher ptr
     lib->entries[entry_start].reserved = bin.disp_addr - sizeof(void *);
     // write dispatcher stub into target
-    bincode = binmpd.mem + bin.stick_stub.offset;
-    bincode[0] = a64_adrp(bin.stick_stub.vmaddr, bin.disp_addr);
-    bincode[1] = AARCH64_LDUR; // load the address of stick_dispatcher func
-    bincode[2] = AARCH64_BR;
+    bin_insn = binmpd.mem + bin.stick_stub.offset;
+    bin_insn[0] = a64_adrp(bin.stick_stub.vmaddr, bin.disp_addr);
+    bin_insn[1] = AARCH64_LDUR; // load the address of stick_dispatcher func
+    bin_insn[2] = AARCH64_BR;
 
     // insert function hooks and store original func
     for (int i = entry_start; i < entry_end; i++) {
@@ -290,22 +290,21 @@ int install_hook(const char *target_path, struct stick_lib *lib, int imgidx) {
         if (entry->original != 0) {
             // store original func stub in library
             uint64_t stub_vmaddr = ADDR_MASK & (uint64_t)entry->original;
-            libcode = lib->data + stub_vmaddr + lib->vm_slide;
-            bincode = binmpd.mem + entry->vmaddr + bin.vm_slide;
             // copy header first
-            memcpy(libcode, bincode, STICK_HEADSIZE);
-            libcode = (void *)libcode + STICK_HEADSIZE;
+            lib_insn = lib->data + stub_vmaddr + lib->vm_slide;
+            memcpy(lib_insn, binmpd.mem + entry->vmaddr + bin.vm_slide, STICK_HEADSIZE);
+            lib_insn = (void *)lib_insn + STICK_HEADSIZE;
             // insert a jump to original function
             uint64_t vmaddr_addr = lib->stick_vmaddr + i * sizeof(struct stick_entry) + offsetof(struct stick_entry, vmaddr);
-            bincode[0] = a64_adrp(stub_vmaddr + STICK_HEADSIZE, vmaddr_addr);
-            bincode[1] = a64_add(vmaddr_addr & 0xfff);
-            bincode[2] = AARCH64_LDR; // load entry.vmaddr, image slide will be added in stick_init()
-            bincode[3] = AARCH64_BR;
+            lib_insn[0] = a64_adrp(stub_vmaddr + STICK_HEADSIZE, vmaddr_addr);
+            lib_insn[1] = a64_add(vmaddr_addr & 0xfff);
+            lib_insn[2] = AARCH64_LDR; // load entry.vmaddr, image slide will be added in stick_init()
+            lib_insn[3] = AARCH64_BR;
         }
         // insert func hook (jump to the dispatcher stub)
-        bincode = binmpd.mem + entry->vmaddr + bin.vm_slide;
-        bincode[0] = a64_mov(i);
-        bincode[1] = a64_b(entry->vmaddr + 4, bin.stick_stub.vmaddr);
+        bin_insn = binmpd.mem + entry->vmaddr + bin.vm_slide;
+        bin_insn[0] = a64_mov(i);
+        bin_insn[1] = a64_b(entry->vmaddr + 4, bin.stick_stub.vmaddr);
     }
 
     unmap_file(&binmpd);
